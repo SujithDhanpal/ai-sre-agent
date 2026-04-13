@@ -4,6 +4,8 @@
 
 An autonomous production incident investigation platform built in Java/Spring Boot. Give it an incident query, and it queries live production systems, traces data flows through code, diagnoses the root cause with cited evidence, and generates fixes — all without human intervention.
 
+![Demo](demo.gif)
+
 ---
 
 ## Problem
