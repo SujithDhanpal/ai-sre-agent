@@ -1,0 +1,95 @@
+version: '3.9'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sre-postgres
+    environment:
+      POSTGRES_DB: sreagent
+      POSTGRES_USER: sreagent
+      POSTGRES_PASSWORD: sreagent_dev
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sreagent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: sre-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI SRE Platform
+  sre-agent:
+    build: .
+    container_name: sre-agent
+    ports:
+      - "8080:8080"
+    environment:
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sreagent
+      SPRING_DATASOURCE_USERNAME: sreagent
+      SPRING_DATASOURCE_PASSWORD: sreagent_dev
+
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+
+      # Claude API (chat)
+      SPRING_AI_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # OpenAI API (embeddings only)
+      SPRING_AI_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Spring AI config
+      SPRING_AI_VECTORSTORE_PGVECTOR_INITIALIZE_SCHEMA: "true"
+
+      # Security — permit all for dev
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ""
+
+      # Plugins — disabled by default, enable what you have
+      SRE_PLUGINS_GRAFANA_ENABLED: ${GRAFANA_ENABLED:-false}
+      SRE_PLUGINS_GRAFANA_LOKI_BASEURL: ${GRAFANA_LOKI_URL:-http://localhost:3100}
+      SRE_PLUGINS_GRAFANA_PROMETHEUS_BASEURL: ${GRAFANA_PROMETHEUS_URL:-http://localhost:9090}
+      SRE_PLUGINS_GRAFANA_APIKEY: ${GRAFANA_API_KEY:-}
+      SRE_PLUGINS_SENTRY_ENABLED: ${SENTRY_ENABLED:-false}
+      SRE_PLUGINS_SENTRY_AUTHTOKEN: ${SENTRY_AUTH_TOKEN:-}
+      SRE_PLUGINS_SENTRY_ORGANIZATION: ${SENTRY_ORG:-}
+      SRE_PLUGINS_GITHUB_ENABLED: ${GITHUB_ENABLED:-false}
+      SRE_PLUGINS_GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      SRE_PLUGINS_GITHUB_DEFAULTOWNER: ${GITHUB_OWNER:-}
+      SRE_PLUGINS_AWS_ENABLED: ${AWS_ENABLED:-false}
+      SRE_PLUGINS_AWS_REGION: ${AWS_REGION:-us-east-1}
+      SRE_PLUGINS_POSTGRES_ENABLED: ${POSTGRES_DIAG_ENABLED:-false}
+    volumes:
+      - ${SSH_KEY_PATH:-./keys/placeholder}:/keys/prod_jump_box:ro
+      - ${KUBE_CONFIG_PATH:-./keys/placeholder}:/root/.kube:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,38 @@
+# Build
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+*.code-workspace
+.project
+.classpath
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env.local
+application-local.yml
+application-local.properties
+
+# Secrets — never commit
+**/secrets/
+**/*credentials*
+**/*secret*
+
+# Logs
+logs/
+*.log
+
+# Docker volumes
+docker/data/

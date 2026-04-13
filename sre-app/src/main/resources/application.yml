@@ -1,0 +1,165 @@
+spring:
+  application:
+    name: ai-sre-agent
+
+  # Virtual Threads (Java 21)
+  threads:
+    virtual:
+      enabled: true
+
+  # PostgreSQL + pgvector
+  datasource:
+    url: jdbc:postgresql://localhost:15432/sreagent
+    username: sreagent
+    password: ${DB_PASSWORD:sreagent_dev}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+  # Flyway
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+
+  # Redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # Spring AI
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        options:
+          model: claude-sonnet-4-20250514
+          max-tokens: 4096
+          temperature: 0.2
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      embedding:
+        options:
+          model: text-embedding-3-small
+    retry:
+      max-attempts: 3
+      backoff:
+        initial-interval: 1000
+        multiplier: 2.0
+        max-interval: 10000
+      on-http-codes: 429,500,503
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        initialize-schema: true
+
+  # Spring Security — disable defaults for dev
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:}
+
+# Server
+server:
+  port: 8080
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+# Resilience4j
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+    instances:
+      anthropicApi:
+        baseConfig: default
+      grafanaApi:
+        baseConfig: default
+      githubApi:
+        baseConfig: default
+      sentryApi:
+        baseConfig: default
+      awsApi:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 2s
+        exponentialBackoffMultiplier: 2
+  ratelimiter:
+    instances:
+      anthropicApi:
+        limitForPeriod: 50
+        limitRefreshPeriod: 60s
+        timeoutDuration: 5s
+
+# SRE Agent Configuration
+sre:
+  agent:
+    triage:
+      dedup-window-minutes: 5
+      flapping-threshold: 3
+      flapping-window-minutes: 10
+    analysis:
+      confidence-threshold: 0.7
+      max-tool-iterations: 15
+      escalation-timeout-minutes: 5
+    fix:
+      max-files-modified: 10
+      max-lines-changed: 200
+      sandbox-timeout-minutes: 10
+      sandbox-memory-mb: 2048
+      sandbox-cpu-count: 2
+    guardrails:
+      auto-merge-enabled: false
+      auto-deploy-enabled: false
+      require-human-approval-p1: true
+      require-human-approval-p2: true
+      protected-paths:
+        - "*/application*.yml"
+        - "*/Dockerfile"
+        - "*/.github/*"
+        - "*/pom.xml"
+
+# Logging
+logging:
+  level:
+    com.sre.agent: DEBUG
+    org.springframework.ai: INFO
+    org.springframework.statemachine: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
