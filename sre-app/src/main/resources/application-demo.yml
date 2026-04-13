@@ -1,0 +1,37 @@
+# Demo profile — uses synthetic data, no real external systems needed
+# Run with: SPRING_PROFILES_ACTIVE=demo
+
+sre:
+  plugins:
+    grafana:
+      enabled: false
+    github:
+      enabled: false
+    aws:
+      enabled: false
+    postgres:
+      enabled: false
+    sentry:
+      enabled: false
+
+# Use in-memory H2 instead of real PostgreSQL for the app database
+spring:
+  datasource:
+    url: jdbc:h2:mem:sre-demo;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        options:
+          model: claude-sonnet-4-20250514
+    openai:
+      api-key: ${OPENAI_API_KEY:not-needed-for-demo}

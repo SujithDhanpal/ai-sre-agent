@@ -125,6 +125,23 @@ mvn clean package -DskipTests
 docker-compose up --build
 ```
 
+### Demo Mode (no external systems needed)
+
+Run with synthetic data — no Grafana, AWS, PostgreSQL, or GitHub required. Only needs an Anthropic API key.
+
+```bash
+SPRING_PROFILES_ACTIVE=demo ANTHROPIC_API_KEY=your-key-here mvn spring-boot:run -pl sre-app
+```
+
+Then try:
+```bash
+curl -X POST http://localhost:8080/api/v1/investigate \
+  -H "Content-Type: application/json" \
+  -d '{"query": "what happened to request b24cb14f-a9a9-4e6e-ac8e-410b7c7dee13", "services": ["payment-service"]}'
+```
+
+The demo simulates a **payment service timeout caused by DB connection pool exhaustion after a bad deploy** — realistic logs, DB stats, error groups, deploy history, and source code.
+
 ---
 
 ## API Endpoints
